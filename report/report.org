@@ -1,0 +1,31 @@
+#+title: GR(1) Verification
+#+autor: Luca Zaninotto -- 2057074
+* General reactivity of rank 1
+  In temporal logic, general reactivity formulas of rank 1 are
+  formulas in the shape
+
+  \[(\square\diamond f_1 \wedge \square\diamond f_2 \wedge \dots \wedge
+  \square\diamond f_n) \rightarrow (\square\diamond g_1 \wedge
+  \square\diamond g_2 \wedge \dots \wedge \square\diamond g_n)\]
+
+  Check that this formula is true in a given model means checking that
+  the negation is not present. In other words, we have to check
+  weather a cycle such that \[\neg(\square\diamond g_1 \wedge
+  \square\diamond g_2 \wedge \dots \wedge \square\diamond g_n) \wedge
+  (\square\diamond f_1 \wedge \square\diamond f_2 \wedge \dots \wedge
+  \square\diamond f_n)\] exists. If it exists and we found it, we have
+  a counterexample to show.
+* Algorithm overview
+  The fist thing to do is find all the cycles that contain all the
+  \(f_n\) in the model. \[\square\diamond f_1 \wedge \square\diamond
+  f_2 \wedge \dots \wedge \square\diamond f_n\]. This can be done
+  starting from the initial states (=Init= set), iterating the post
+  image until one iteration intersects with the already reached
+  set. The intersection rapresents candidates to the start of the
+  cycle.
+
+  # Image
+
+  Once the cycles are found the algorithm should check weather
+  in the cycle also the \(g_n\) are satisfied: \[\square\diamond g_1
+  \wedge \square\diamond g_2 \wedge \dots \wedge \square\diamond g_n\]

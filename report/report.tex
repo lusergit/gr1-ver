@@ -1,0 +1,54 @@
+% Created 2023-03-14 Tue 16:52
+% Intended LaTeX compiler: pdflatex
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{longtable}
+\usepackage{wrapfig}
+\usepackage{rotating}
+\usepackage[normalem]{ulem}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{capt-of}
+\usepackage{hyperref}
+\author{Luca Zaninotto}
+\date{\today}
+\title{GR(1) Verification}
+\hypersetup{
+ pdfauthor={Luca Zaninotto},
+ pdftitle={GR(1) Verification},
+ pdfkeywords={},
+ pdfsubject={},
+ pdfcreator={Emacs 28.2.50 (Org mode 9.5.5)}, 
+ pdflang={English}}
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+\section{General reactivity of rank 1}
+\label{sec:org2691051}
+In temporal logic, general reactivity formulas of rank 1 are
+formulas in the shape
+
+\[(\square\diamond f_1 \wedge \square\diamond f_2 \wedge \dots \wedge
+  \square\diamond f_n) \rightarrow (\square\diamond g_1 \wedge
+  \square\diamond g_2 \wedge \dots \wedge \square\diamond g_n)\]
+
+Check that this formula is true in a given model means checking that
+the negation is not present. In other words, we have to check
+weather a cycle such that \[\neg(\square\diamond g_1 \wedge
+  \square\diamond g_2 \wedge \dots \wedge \square\diamond g_n) \wedge
+  (\square\diamond f_1 \wedge \square\diamond f_2 \wedge \dots \wedge
+  \square\diamond f_n)\] exists. If it exists and we found it, we have
+a counterexample to show.
+\section{Algorithm overview}
+\label{sec:org1dc3365}
+The fist thing to do is find all the cycles that contain all the
+\(f_n\) in the model. \[\square\diamond f_1 \wedge \square\diamond
+  f_2 \wedge \dots \wedge \square\diamond f_n\] Once the cycles are
+found the algorithm should check weather in the cycle also the
+\(g_n\) are satisfied: \[\square\diamond g_1 \wedge \square\diamond
+  g_2 \wedge \dots \wedge \square\diamond g_n\]
+\end{document}
