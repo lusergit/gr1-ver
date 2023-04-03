@@ -1,5 +1,9 @@
 #+title: GR(1) Verification
-#+autor: Luca Zaninotto -- 2057074
+#+author: Luca Zaninotto -- 2057074
+#+options: toc:nil
+#+latex_header: \usepackage{stmaryrd}
+#+latex_header: \newcommand{\llb}{\ensuremath{\llbracket}}
+#+latex_header: \newcommand{\rrb}{\ensuremath{\rrbracket}}
 * General reactivity of rank 1
   In temporal logic, general reactivity formulas of rank 1 are
   formulas in the shape
@@ -8,24 +12,19 @@
   \square\diamond f_n) \rightarrow (\square\diamond g_1 \wedge
   \square\diamond g_2 \wedge \dots \wedge \square\diamond g_n)\]
 
-  Check that this formula is true in a given model means checking that
-  the negation is not present. In other words, we have to check
-  weather a cycle such that \[\neg(\square\diamond g_1 \wedge
-  \square\diamond g_2 \wedge \dots \wedge \square\diamond g_n) \wedge
-  (\square\diamond f_1 \wedge \square\diamond f_2 \wedge \dots \wedge
-  \square\diamond f_n)\] exists. If it exists and we found it, we have
-  a counterexample to show.
-* Algorithm overview
-  The fist thing to do is find all the cycles that contain all the
-  \(f_n\) in the model. \[\square\diamond f_1 \wedge \square\diamond
-  f_2 \wedge \dots \wedge \square\diamond f_n\]. This can be done
-  starting from the initial states (=Init= set), iterating the post
-  image until one iteration intersects with the already reached
-  set. The intersection rapresents candidates to the start of the
-  cycle.
+  In order to prove that a model satisfies such formulas and in the
+  negative case, give a counterexample, we have to first find the all
+  the loops (the set $S$) that satisfy
 
-  # Image
+  \[S = \llb\square\diamond f_1 \wedge \square\diamond f_2 \wedge
+  \dots \wedge \square\diamond f_n\rrb\]
 
-  Once the cycles are found the algorithm should check weather
-  in the cycle also the \(g_n\) are satisfied: \[\square\diamond g_1
-  \wedge \square\diamond g_2 \wedge \dots \wedge \square\diamond g_n\]
+  and then find \(Q\) s.t.
+
+  \[Q = \llb\square\diamond g_1 \wedge \square\diamond g_2 \wedge
+  \dots \wedge \square\diamond g_n\rrb\]
+  
+  if it holds that \(S \subseteq Q\) our model satisfies the
+  property. If not, from the search process of $S$ and $Q$ we can
+  extrapolate the loops where the first holds but the second one does
+  not.

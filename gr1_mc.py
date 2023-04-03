@@ -6,19 +6,60 @@ from pynusmv_lower_interface.nusmv.parser import parser
 from collections import deque
 from functools import reduce
 
-specTypes = {'LTLSPEC': parser.TOK_LTLSPEC, 'CONTEXT': parser.CONTEXT,
-    'IMPLIES': parser.IMPLIES, 'IFF': parser.IFF, 'OR': parser.OR, 'XOR': parser.XOR, 'XNOR': parser.XNOR,
-    'AND': parser.AND, 'NOT': parser.NOT, 'ATOM': parser.ATOM, 'NUMBER': parser.NUMBER, 'DOT': parser.DOT,
+specTypes = {
+    'LTLSPEC': parser.TOK_LTLSPEC, 
+    'CONTEXT': parser.CONTEXT,
+    'IMPLIES': parser.IMPLIES, 
+    'IFF': parser.IFF, 
+    'OR': parser.OR, 
+    'XOR': parser.XOR, 
+    'XNOR': parser.XNOR,
+    'AND': parser.AND, 
+    'NOT': parser.NOT, 
+    'ATOM': parser.ATOM,
+    'NUMBER': parser.NUMBER,
+    'DOT': parser.DOT,
 
-    'NEXT': parser.OP_NEXT, 'OP_GLOBAL': parser.OP_GLOBAL, 'OP_FUTURE': parser.OP_FUTURE,
+    'NEXT': parser.OP_NEXT,
+    'OP_GLOBAL': parser.OP_GLOBAL,
+    'OP_FUTURE': parser.OP_FUTURE,
+    
     'UNTIL': parser.UNTIL,
-    'EQUAL': parser.EQUAL, 'NOTEQUAL': parser.NOTEQUAL, 'LT': parser.LT, 'GT': parser.GT,
-    'LE': parser.LE, 'GE': parser.GE, 'TRUE': parser.TRUEEXP, 'FALSE': parser.FALSEEXP
+    
+    'EQUAL': parser.EQUAL,
+    'NOTEQUAL': parser.NOTEQUAL,
+    'LT': parser.LT,
+    'GT': parser.GT,
+    
+    'LE': parser.LE,
+    'GE': parser.GE,
+    'TRUE': parser.TRUEEXP,
+    'FALSE': parser.FALSEEXP
 }
 
-basicTypes = {parser.ATOM, parser.NUMBER, parser.TRUEEXP, parser.FALSEEXP, parser.DOT,
-              parser.EQUAL, parser.NOTEQUAL, parser.LT, parser.GT, parser.LE, parser.GE}
-booleanOp = {parser.AND, parser.OR, parser.XOR, parser.XNOR, parser.IMPLIES, parser.IFF}
+basicTypes = {
+    parser.ATOM,
+    parser.NUMBER,
+    parser.TRUEEXP,
+    parser.FALSEEXP,
+    parser.DOT,
+
+    parser.EQUAL,
+    parser.NOTEQUAL,
+    parser.LT,
+    parser.GT,
+    parser.LE,
+    parser.GE
+}
+
+booleanOp = {
+    parser.AND,
+    parser.OR,
+    parser.XOR,
+    parser.XNOR,
+    parser.IMPLIES,
+    parser.IFF
+}
 
 def spec_to_bdd(model, spec):
     """
@@ -28,7 +69,7 @@ def spec_to_bdd(model, spec):
     """
     bddspec = pynusmv.mc.eval_simple_expression(model, str(spec))
     return bddspec
-    
+
 def is_boolean_formula(spec):
     """
     Given a formula `spec`, checks if the formula is a boolean combination of base
@@ -41,7 +82,7 @@ def is_boolean_formula(spec):
     if spec.type in booleanOp:
         return is_boolean_formula(spec.car) and is_boolean_formula(spec.cdr)
     return False
-    
+
 def is_GF_formula(spec):
     """
     Given a formula `spec` checks if the formula is of the form GF f, where f is a 
@@ -134,15 +175,11 @@ def repeatable(model, region):
             if recur.entailed(pre_reach):
                 return recur, pre_reach
             new = model.pre(new) - pre_reach
-        recur = recur & pre_reach
+            recur = recur & pre_reach
     return None
 
-# Find a cycle where fs hold, but no g ever hold
-def find_witness(model, cycle, gs):
-    # TODO
-    return 1
-    
 def loop_set(model, recur, pre_reach):
+    recur = (recur & pre_reach)
     new = model.post(recur) & pre_reach
     # loop-visited states
     r = recur + new
@@ -152,38 +189,42 @@ def loop_set(model, recur, pre_reach):
         new = new - r
     return r
 
+def init_path(model, loops):
+    reach = model.init
+    new = model.init
+    sect = new & loops
+    # Forward
+    i = 0
+    while model.count_states(sect) == 0:
+        new = model.post(new) - reach
+        reach = reach + new
+        sect = reach & loops
+        i += 1
+    # found forward path, start from sect
+    print(f"Forward phase {i}")
+    path = sect
+    new = sect
+    i = 0
+    while model.count_states(path & model.init) == 0:
+        new = model.pre(new) & reach
+        path = path + new
+        i += 1
+    print(f"Backward phase {i}")
+    return path
 
-def try_loop(model, inters):
-    # if the intersection is empty, return None, no cycle
-    if model.count_states(inters) == 0:
+
+def check_gf(model, reachable, fbdd):
+    # Input: model, reachable states, bdd rapresenting the formula f
+    # in G(F(f)). The forumla is respected iff F(G(not f)) is /not/
+    # respected
+    ret = repeatable(model, fbdd)
+    if ret == None:
         return None
-    s = model.pick_one_state_random(inters)
-    new = (model.post(s) & inters) - s # ensure len >= 1
-    r = new + s
-    while model.count_states(new) > 0:
-        if s.entailed(new):
-            return inters
-        new = model.post(new) & inters
-        new = new - r
-        r = r + new
-    return None
+    recur, pre_reach = ret
+    loops = loop_set(model, recur, pre_reach)
+    # Return all the nodes that respect F(G(not f))
+    return reachable & ~loops
 
-# Find all the cycles in the model where each `fs` eventually hold
-def find_cycle(model, fs):
-    # trova recur, pre_reach per ogni formula
-    bls = list(map(lambda f: repeatable(model, f), fs))
-    # Se ci sono dei set con None, significa che non ci sono loop che
-    # verificano una formula => le ipotesi sono false e quindi
-    # l'implicazione è vera
-    if bls.count(None) > 0:
-        return None
-
-    loop_sets = map(lambda x : loop_set(model, x[0], x[1]), bls)
-    inters = reduce(lambda x, acc : x & acc, loop_sets)
-    # Now, either the intersection is still a loop set or not, try to
-    # build a loop, if it succeeds, the is a loopset, if not is not
-    # anymore (there are missing pieces)
-    return try_loop(model, inters)
 
 # spec in gr1 form
 def check_explain_gr1_spec_impl(spec):
@@ -196,17 +237,23 @@ def check_explain_gr1_spec_impl(spec):
     fs = list(map(lambda f : spec_to_bdd(model, f), fs))
     gs = list(map(lambda g : spec_to_bdd(model, g), gs))
 
-    # Find the cycle that respects G(F(f_n)) for availabe n
-    ft = find_cycle(model, fs) # find_false(find_cycle(fs), gs)
-    gt = find_cycle(model, gs)
+    reach = reachable(model) # Reachable states in the model
 
-    if not ft:
+    bls_f = list(map(lambda f : check_gf(model, reach, f), fs))
+    bls_g = list(map(lambda g : check_gf(model, reach, g), gs))
+
+    # If one or more hypotesis are not resoected, the conlcusion is
+    # true
+    if bls_f.count(None) > 0:
         return True
-    if not gt:
+
+    if bls_g.count(None) > 0:
         return False
-    print("ft: {}".format(ft))
-    print("gt: {}".format(gt))
-    # Check weather the intersection is not empty
+
+    gt = reduce(lambda x,acc : x + acc, bls_f)
+    ft = reduce(lambda x,acc : x + acc, bls_g)
+
+    joint = reduce(lambda x,acc : x + acc, gs)
     return ft <= gt
 
 
@@ -229,7 +276,6 @@ def check_explain_gr1_spec(spec):
     are their value.
     """
     if parse_gr1(spec) == None:
-        print("here")
         return None
     return check_explain_gr1_spec_impl(spec)# pynusmv.mc.check_explain_ltl_spec(spec)
 
