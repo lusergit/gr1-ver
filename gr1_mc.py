@@ -6,59 +6,22 @@ from pynusmv_lower_interface.nusmv.parser import parser
 from collections import deque
 from functools import reduce
 
-specTypes = {
-    'LTLSPEC': parser.TOK_LTLSPEC, 
-    'CONTEXT': parser.CONTEXT,
-    'IMPLIES': parser.IMPLIES, 
-    'IFF': parser.IFF, 
-    'OR': parser.OR, 
-    'XOR': parser.XOR, 
-    'XNOR': parser.XNOR,
-    'AND': parser.AND, 
-    'NOT': parser.NOT, 
-    'ATOM': parser.ATOM,
-    'NUMBER': parser.NUMBER,
-    'DOT': parser.DOT,
-
-    'NEXT': parser.OP_NEXT,
-    'OP_GLOBAL': parser.OP_GLOBAL,
-    'OP_FUTURE': parser.OP_FUTURE,
-    
-    'UNTIL': parser.UNTIL,
-    
-    'EQUAL': parser.EQUAL,
-    'NOTEQUAL': parser.NOTEQUAL,
-    'LT': parser.LT,
-    'GT': parser.GT,
-    
-    'LE': parser.LE,
-    'GE': parser.GE,
-    'TRUE': parser.TRUEEXP,
-    'FALSE': parser.FALSEEXP
+specTypes = { 
+    'LTLSPEC': parser.TOK_LTLSPEC, 'CONTEXT': parser.CONTEXT, 'IMPLIES': parser.IMPLIES, 'IFF': parser.IFF, 
+    'OR': parser.OR, 'XOR': parser.XOR, 'XNOR': parser.XNOR, 'AND': parser.AND, 'NOT': parser.NOT, 
+    'ATOM': parser.ATOM, 'NUMBER': parser.NUMBER, 'DOT': parser.DOT, 'NEXT': parser.OP_NEXT,
+    'OP_GLOBAL': parser.OP_GLOBAL, 'OP_FUTURE': parser.OP_FUTURE, 'UNTIL': parser.UNTIL,
+    'EQUAL': parser.EQUAL,'NOTEQUAL': parser.NOTEQUAL,'LT': parser.LT,'GT': parser.GT,'LE': parser.LE,
+    'GE': parser.GE,'TRUE': parser.TRUEEXP,'FALSE': parser.FALSEEXP
 }
 
 basicTypes = {
-    parser.ATOM,
-    parser.NUMBER,
-    parser.TRUEEXP,
-    parser.FALSEEXP,
-    parser.DOT,
-
-    parser.EQUAL,
-    parser.NOTEQUAL,
-    parser.LT,
-    parser.GT,
-    parser.LE,
-    parser.GE
+    parser.ATOM, parser.NUMBER, parser.TRUEEXP, parser.FALSEEXP, parser.DOT, parser.EQUAL,
+    parser.NOTEQUAL, parser.LT, parser.GT, parser.LE, parser.GE
 }
 
 booleanOp = {
-    parser.AND,
-    parser.OR,
-    parser.XOR,
-    parser.XNOR,
-    parser.IMPLIES,
-    parser.IFF
+    parser.AND, parser.OR, parser.XOR, parser.XNOR, parser.IMPLIES, parser.IFF
 }
 
 def spec_to_bdd(model, spec):
@@ -156,6 +119,16 @@ def parse_gr1(spec):
         return None
     return (f_set, g_set)
 
+
+# Additional operations
+def is_subset(this, other):
+    return (this & other) == this
+
+def is_empty(model, region):
+    return model.count_states(region) == 0
+
+
+# Reachability algorithm
 def reachable(model):
     reach = model.init
     new = model.init
@@ -164,67 +137,35 @@ def reachable(model):
         reach = reach + new
     return reach
 
+
+# Repeatability check G ( F ( f ))
 def repeatable(model, region):
     reach = reachable(model)
     recur = reach & region
-    while model.count_states(recur) > 0:
+    while not is_empty(model, recur):
         new = model.pre(recur)
         pre_reach = new
-        while model.count_states(new) > 0:
+        while not is_empty(model, new):
             pre_reach = pre_reach + new
-            if recur.entailed(pre_reach):
+            if is_subset(recur, pre_reach):
                 return recur, pre_reach
             new = model.pre(new) - pre_reach
-            recur = recur & pre_reach
+        recur = recur * pre_reach
     return None
 
+
 def loop_set(model, recur, pre_reach):
-    recur = (recur & pre_reach)
-    new = model.post(recur) & pre_reach
-    # loop-visited states
-    r = recur + new
-    while model.count_states(new) > 0:
-        r = r + new
-        new = model.post(new) & pre_reach
-        new = new - r
-    return r
-
-def init_path(model, loops):
-    reach = model.init
-    new = model.init
-    sect = new & loops
-    # Forward
-    i = 0
-    while model.count_states(sect) == 0:
-        new = model.post(new) - reach
-        reach = reach + new
-        sect = reach & loops
-        i += 1
-    # found forward path, start from sect
-    print(f"Forward phase {i}")
-    path = sect
-    new = sect
-    i = 0
-    while model.count_states(path & model.init) == 0:
-        new = model.pre(new) & reach
-        path = path + new
-        i += 1
-    print(f"Backward phase {i}")
-    return path
-
-
-def check_gf(model, reachable, fbdd):
-    # Input: model, reachable states, bdd rapresenting the formula f
-    # in G(F(f)). The forumla is respected iff F(G(not f)) is /not/
-    # respected
-    ret = repeatable(model, fbdd)
-    if ret == None:
-        return None
-    recur, pre_reach = ret
-    loops = loop_set(model, recur, pre_reach)
-    # Return all the nodes that respect F(G(not f))
-    return reachable & ~loops
-
+    s = model.pick_one_state_random(recur)
+    while True:
+        new = model.post(s) & pre_reach
+        r = new
+        while not is_empty(model, new):
+            r = r + new
+            new = (model.post(new) * pre_reach) - r
+        r = r * recur
+        if s <= r:
+            return r + s
+        s = model.pick_one_state_random(r)
 
 # spec in gr1 form
 def check_explain_gr1_spec_impl(spec):
@@ -234,29 +175,29 @@ def check_explain_gr1_spec_impl(spec):
     # find fs and gs from formula
     fs, gs = parse_gr1(spec)
     # And build the respective bdds
-    fs = list(map(lambda f : spec_to_bdd(model, f), fs))
-    gs = list(map(lambda g : spec_to_bdd(model, g), gs))
+    to_bdd = lambda f : spec_to_bdd(model, f)
+    fs = list(map(to_bdd, fs))
+    gs = list(map(to_bdd, gs))
 
-    reach = reachable(model) # Reachable states in the model
-
-    bls_f = list(map(lambda f : check_gf(model, reach, f), fs))
-    bls_g = list(map(lambda g : check_gf(model, reach, g), gs))
-
-    # If one or more hypotesis are not resoected, the conlcusion is
-    # true
-    if bls_f.count(None) > 0:
+    rep = lambda f : repeatable(model, f)
+    loops = lambda x : ~loop_set(model, x[0], x[1])
+    disjoin = lambda x,acc : x * acc
+    join = lambda x,acc : x + acc
+    
+    tmp = list(map(rep, fs))
+    if tmp.count(None) > 0:
         return True
-
-    if bls_g.count(None) > 0:
+    loops_f = reduce(join, list(map(loops, tmp)))
+    
+    tmp = list(map(rep, gs))
+    if tmp.count(None) > 0:
         return False
+    loops_g = reduce(join, list(map(loops, tmp)))
 
-    gt = reduce(lambda x,acc : x + acc, bls_f)
-    ft = reduce(lambda x,acc : x + acc, bls_g)
+    return is_subset(loops_g, loops_f)
+    
 
-    joint = reduce(lambda x,acc : x + acc, gs)
-    return ft <= gt
-
-
+
 def check_explain_gr1_spec(spec):
     """
     Return whether the loaded SMV model satisfies or not the GR(1) formula

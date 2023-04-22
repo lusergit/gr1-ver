@@ -8,23 +8,33 @@
   In temporal logic, general reactivity formulas of rank 1 are
   formulas in the shape
 
-  \[(\square\diamond f_1 \wedge \square\diamond f_2 \wedge \dots \wedge
-  \square\diamond f_n) \rightarrow (\square\diamond g_1 \wedge
-  \square\diamond g_2 \wedge \dots \wedge \square\diamond g_n)\]
+  \[(\square\diamondsuit f_1 \wedge \square\diamondsuit f_2 \wedge \dots \wedge
+  \square\diamondsuit f_n) \rightarrow (\square\diamondsuit g_1 \wedge
+  \square\diamondsuit g_2 \wedge \dots \wedge \square\diamondsuit g_n)\]
 
-  In order to prove that a model satisfies such formulas and in the
-  negative case, give a counterexample, we have to first find the all
-  the loops (the set $S$) that satisfy
+  In other words
 
-  \[S = \llb\square\diamond f_1 \wedge \square\diamond f_2 \wedge
-  \dots \wedge \square\diamond f_n\rrb\]
+  \[\bigwedge_{i=1}^n\square\diamondsuit f_i \rightarrow \bigwedge_{i=1}^n
+  \square \diamondsuit g_i\]
 
-  and then find \(Q\) s.t.
+  To prove that a given model respects such specifications we can see
+  it in another way, and verify weather the model does /not/ satisfy
 
-  \[Q = \llb\square\diamond g_1 \wedge \square\diamond g_2 \wedge
-  \dots \wedge \square\diamond g_n\rrb\]
-  
-  if it holds that \(S \subseteq Q\) our model satisfies the
-  property. If not, from the search process of $S$ and $Q$ we can
-  extrapolate the loops where the first holds but the second one does
-  not.
+  \[(\bigwedge_{i=1}^n\square\diamondsuit f_i) \wedge
+  (\bigvee_{i=1}^n\diamondsuit\square (\neg g_i))\]
+
+  By seeing the problem this way we have a clearer way to implement an
+  algorithm to find weather a given specification is satisfied or not,
+  following the general scheme:
+  - find the loops respecting \(\square\diamondsuit f_1\), from that, find
+    the loops respecting \(\square\diamondsuit f_2\), and so on, until you
+    either found a loop satisfying \(\bigwedge_{i=1}^n\square\diamondsuit
+    f_i\) or an empty set.
+    + If an empty set was found, the property is respected, the
+      hypothesis is false.
+    + if not, go to the next step
+  - for each \(g_i\), starting from the loops respecting
+    \(\bigwedge_{i=1}^n\square\diamondsuit f_i\) search for a loop
+    respecting \(\diamondsuit\square g_i\)
+    + if any of such loop is found, return a counterexample
+    + if no such loop is found, the property is still respected

@@ -1,4 +1,4 @@
-% Created 2023-03-14 Tue 16:52
+% Created 2023-04-18 Tue 11:19
 % Intended LaTeX compiler: pdflatex
 \documentclass[11pt]{article}
 \usepackage[utf8]{inputenc}
@@ -12,43 +12,61 @@
 \usepackage{amssymb}
 \usepackage{capt-of}
 \usepackage{hyperref}
-\author{Luca Zaninotto}
+\usepackage{stmaryrd}
+\newcommand{\llb}{\ensuremath{\llbracket}}
+\newcommand{\rrb}{\ensuremath{\rrbracket}}
+\author{Luca Zaninotto -- 2057074}
 \date{\today}
 \title{GR(1) Verification}
 \hypersetup{
- pdfauthor={Luca Zaninotto},
+ pdfauthor={Luca Zaninotto -- 2057074},
  pdftitle={GR(1) Verification},
  pdfkeywords={},
  pdfsubject={},
- pdfcreator={Emacs 28.2.50 (Org mode 9.5.5)}, 
+ pdfcreator={Emacs 28.2 (Org mode 9.5.5)}, 
  pdflang={English}}
 \begin{document}
 
 \maketitle
-\tableofcontents
-
 \section{General reactivity of rank 1}
-\label{sec:org2691051}
+\label{sec:org6d8ae8f}
 In temporal logic, general reactivity formulas of rank 1 are
 formulas in the shape
 
-\[(\square\diamond f_1 \wedge \square\diamond f_2 \wedge \dots \wedge
-  \square\diamond f_n) \rightarrow (\square\diamond g_1 \wedge
-  \square\diamond g_2 \wedge \dots \wedge \square\diamond g_n)\]
+\[(\square\diamondsuit f_1 \wedge \square\diamondsuit f_2 \wedge \dots \wedge
+  \square\diamondsuit f_n) \rightarrow (\square\diamondsuit g_1 \wedge
+  \square\diamondsuit g_2 \wedge \dots \wedge \square\diamondsuit g_n)\]
 
-Check that this formula is true in a given model means checking that
-the negation is not present. In other words, we have to check
-weather a cycle such that \[\neg(\square\diamond g_1 \wedge
-  \square\diamond g_2 \wedge \dots \wedge \square\diamond g_n) \wedge
-  (\square\diamond f_1 \wedge \square\diamond f_2 \wedge \dots \wedge
-  \square\diamond f_n)\] exists. If it exists and we found it, we have
-a counterexample to show.
-\section{Algorithm overview}
-\label{sec:org1dc3365}
-The fist thing to do is find all the cycles that contain all the
-\(f_n\) in the model. \[\square\diamond f_1 \wedge \square\diamond
-  f_2 \wedge \dots \wedge \square\diamond f_n\] Once the cycles are
-found the algorithm should check weather in the cycle also the
-\(g_n\) are satisfied: \[\square\diamond g_1 \wedge \square\diamond
-  g_2 \wedge \dots \wedge \square\diamond g_n\]
+In other words
+
+\[\bigwedge_{i=1}^n\square\diamondsuit f_i \rightarrow \bigwedge_{i=1}^n
+  \square \diamondsuit g_i\]
+
+To prove that a given model respects such specifications we can see
+it in another way, and verify weather the model does \emph{not} satisfy
+
+\[(\bigwedge_{i=1}^n\square\diamondsuit f_i) \wedge
+  (\bigvee_{i=1}^n\diamondsuit\square (\neg g_i))\]
+
+By seeing the problem this way we have a clearer way to implement an
+algorithm to find weather a given specification is satisfied or not,
+following the general scheme:
+\begin{itemize}
+\item find the loops respecting \(\square\diamondsuit f_1\), from that, find
+the loops respecting \(\square\diamondsuit f_2\), and so on, until you
+either found a loop satisfying \(\bigwedge_{i=1}^n\square\diamondsuit
+    f_i\) or an empty set.
+\begin{itemize}
+\item If an empty set was found, the property is respected, the
+hypothesis is false.
+\item if not, go to the next step
+\end{itemize}
+\item for each \(g_i\), starting from the loops respecting
+\(\bigwedge_{i=1}^n\square\diamondsuit f_i\) search for a loop
+respecting \(\diamondsuit\square g_i\)
+\begin{itemize}
+\item if any of such loop is found, return a counterexample
+\item if no such loop is found, the property is still respected
+\end{itemize}
+\end{itemize}
 \end{document}
