@@ -259,7 +259,7 @@ def counterexample(frontiers):
                 curr = fsm.pick_one_state(pred)
                 path = path + [curr]
             path = path + [s]
-            # print(f"s: {s}")
+            print(f"s: {s}")
             return list(reversed(path))
         else:
             s = fsm.pick_one_state(r)
@@ -323,7 +323,7 @@ def compute_path(s, t):
 def to_str(path):
     fsm = pynusmv.glob.prop_database().master.bddFsm
     tupath = (path[0],)
-    print(path)
+    # print(path)
     for s,t in zip(path, path[1:]):
         # print(tupath)
         comp = compute_path(s,t)
