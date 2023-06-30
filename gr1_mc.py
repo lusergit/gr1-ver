@@ -1,8 +1,7 @@
 #!/bin/env python3
-
 import pynusmv
 import sys
-from pynusmv_lower_interface.nusmv.parser import parser 
+from pynusmv_lower_interface.nusmv.parser import parser
 from collections import deque
 from functools import reduce
 
@@ -120,82 +119,195 @@ def parse_gr1(spec):
     return (f_set, g_set)
 
 
-# Additional operations
-def is_subset(this, other):
-    return (this & other) == this
-
-def is_empty(model, region):
-    return model.count_states(region) == 0
-
-
-# Reachability algorithm
-def reachable(model):
-    reach = model.init
-    new = model.init
-    while model.count_states(new) > 0:
-        new = model.post(new) - reach
+# Reachability
+def reachability(fsm):
+    reach = fsm.init
+    new = fsm.init
+    while fsm.count_states(new) != 0 :
+        new = fsm.post(new) - reach
         reach = reach + new
     return reach
 
 
-# Repeatability check G ( F ( f ))
-def repeatable(model, region):
-    reach = reachable(model)
-    recur = reach & region
-    while not is_empty(model, recur):
-        new = model.pre(recur)
-        pre_reach = new
-        while not is_empty(model, new):
-            pre_reach = pre_reach + new
-            if is_subset(recur, pre_reach):
-                return recur, pre_reach
-            new = model.pre(new) - pre_reach
-        recur = recur * pre_reach
+# Loop finding
+
+def GF(spec, reach):
+    """check weather the model, in the `reach` subset verifies
+    G ( F (spec)).
+    If it does, it returns the set of frontiers calculated
+
+    """
+    fsm = pynusmv.glob.prop_database().master.bddFsm
+    if not reach:
+        return None
+    recur = reach * spec
+    while (fsm.count_states(recur) != 0):
+        reach = pynusmv.dd.BDD.false()
+        new = fsm.pre(recur)
+        news = [new, recur]
+        while (fsm.count_states(new) != 0):
+            reach = reach + new 
+            if recur.entailed(reach):
+                return news
+            new = (fsm.pre(new)) - reach
+            news = [new] + news
+        recur = recur * reach
     return None
 
-
-def loop_set(model, recur, pre_reach):
-    s = model.pick_one_state_random(recur)
-    while True:
-        new = model.post(s) & pre_reach
-        r = new
-        while not is_empty(model, new):
-            r = r + new
-            new = (model.post(new) * pre_reach) - r
-        r = r * recur
-        if s <= r:
-            return r + s
-        s = model.pick_one_state_random(r)
+def FG(spec, reach, recur):
+    """Check weather the model, in the `reach` subset verifies
+    F ( G(spec))
+    If it does, it returns the set of frontiers calculated
+    """
+    
+    fsm = pynusmv.glob.prop_database().master.bddFsm
+    # reach = reachability(fsm)
+    if not reach:
+        return None
+    recur = recur * spec
+    while (fsm.count_states(recur) != 0):
+        reach = pynusmv.dd.BDD.false()
+        new = fsm.pre(recur) * spec
+        news = [new, recur]
+        while (fsm.count_states(new) != 0):
+            reach = reach + new 
+            if recur.entailed(reach):
+                return news
+            new = (fsm.pre(new) * spec) - reach
+            news = [new] + news
+        recur = recur * reach
+    return None
+    
 
-# spec in gr1 form
+def loops(frontiers):
+    """Returns the /reach/ set build from the frontiers given as
+    input, this is useful in the forward phase to restrict more and
+    more the set /reach/ in the FG and GF algotihms
+
+    """
+    if not frontiers:
+        return None
+    fsm = pynusmv.glob.prop_database().master.bddFsm
+    frontiers = list(reversed(frontiers))
+    reach = frontiers[0]
+    new = frontiers[0]
+    for el in frontiers[1:]:
+        new = fsm.post(new) * el
+        new = new - reach
+        reach = reach + new
+    return reach
+
+
+# Counterexample building
+
+def head_to(s):
+    """Return the path from the initial states to the state `state`,
+    supposing it is reachable
+
+    """
+    fsm = pynusmv.glob.prop_database().master.bddFsm
+
+    init = fsm.init
+    new = init
+    reach = init
+    frontiers = []
+    # forward phase
+    while not s.entailed(new):
+        frontiers.append(new)
+        new = fsm.post(new) - reach
+        reach = reach + new
+    path = [s]
+    curr = s
+    # backward phase
+    for back in reversed(frontiers):
+        pre_set = fsm.pre(curr) * back
+        curr = fsm.pick_one_state(pre_set)
+        path = [curr] + path
+    return path
+
+def counterexample(frontiers):
+    """Given a list of frontiers of the FG algorithm, build
+    alazo-shaped execution that starts from the model initial states
+    and loops over the states given by the frontiers
+
+    """
+    fsm = pynusmv.glob.prop_database().master.bddFsm
+
+    recur = frontiers[-1]
+    frontiers = frontiers[:-1]
+    
+    reach = reduce(lambda x,acc: x+acc, frontiers)
+    
+    s = fsm.pick_one_state(recur)
+    
+    while True:
+        r = pynusmv.dd.BDD.false()
+        new = fsm.post(s) * reach
+        r_front = [new]
+
+        while not fsm.count_states(new) == 0:
+            r = r + new
+            new = (fsm.post(new) * reach) - r
+            r_front = r_front + [new]
+        r = r * reach
+
+        if s.entailed(r):
+            # s is in r, a valid loop is found. Find first occurrence
+            # of s:
+            i = 0
+            for front in r_front:
+                if s.entailed(front):
+                    break
+                i += 1
+
+            # Build head from init to s
+            head = head_to(s)[:-1] # forward [init ... s]
+            
+            # build the loop, in a /reverse/ order (with the preimage)
+            loop = [s]
+            curr = s
+            for new in reversed(range(i)):
+                pred = fsm.pre(curr) * r_front[new]
+                curr = fsm.pick_one_state(pred)
+                loop = loop + [curr]
+            loop = loop + [s]
+
+            # head = [init ... ], loop = [s ... s] // reversed
+            path = head + list(reversed(loop))
+            return path
+        else:
+            s = fsm.pick_one_state(r)
+
+
+
+# Spec in GR1 form
 def check_explain_gr1_spec_impl(spec):
-    model = pynusmv.glob.prop_database().master.bddFsm
-    reach = reachable(model)
+    fsm = pynusmv.glob.prop_database().master.bddFsm
 
     # find fs and gs from formula
     fs, gs = parse_gr1(spec)
-    # And build the respective bdds
-    to_bdd = lambda f : spec_to_bdd(model, f)
-    fs = list(map(to_bdd, fs))
-    gs = list(map(to_bdd, gs))
 
-    rep = lambda f : repeatable(model, f)
-    loops = lambda x : ~loop_set(model, x[0], x[1])
-    disjoin = lambda x,acc : x * acc
-    join = lambda x,acc : x + acc
-    
-    tmp = list(map(rep, fs))
-    if tmp.count(None) > 0:
-        return True
-    loops_f = reduce(join, list(map(loops, tmp)))
-    
-    tmp = list(map(rep, gs))
-    if tmp.count(None) > 0:
-        return False
-    loops_g = reduce(join, list(map(loops, tmp)))
+    # Initial loop_set is the whole set of reachable nodes
+    loop_set_f = reachability(fsm)
+    for f in fs:
+        bdd = spec_to_bdd(fsm, f)
+        fronts_f = GF(bdd, loop_set_f)
+        loop_set_f = loops(fronts_f)
 
-    return is_subset(loops_g, loops_f)
-    
+    # If loop_set_f == None, the hypothesis is false, therefore the
+    # property holds
+    if loop_set_f:
+        for g in gs:
+            bdd = spec_to_bdd(fsm, g)
+            bdd = ~bdd
+            recur = fronts_f[-1]
+            # Search in the loop_set_f for a loop satisfying FG(~g_i)
+            frontiers = FG(bdd, loop_set_f, recur)
+            if frontiers:
+                # if some frontiers are founc, return the counterexample
+                return False, counterexample(frontiers)
+
+    return True, None
 
 
 def check_explain_gr1_spec(spec):
@@ -218,7 +330,40 @@ def check_explain_gr1_spec(spec):
     """
     if parse_gr1(spec) == None:
         return None
-    return check_explain_gr1_spec_impl(spec)# pynusmv.mc.check_explain_ltl_spec(spec)
+    return check_explain_gr1_spec_impl(spec)
+
+
+
+# UTILITIES
+
+def compute_path(s, t):
+    """Given two states return the input between them and the second
+    one
+
+    """
+    fsm = pynusmv.glob.prop_database().master.bddFsm
+    inp_set = fsm.get_inputs_between_states(s, t)
+    inp = fsm.pick_one_inputs(inp_set)
+    return (inp, t)
+
+def to_str(path):
+    """Decorate a list of states with the input between them
+
+    """
+    fsm = pynusmv.glob.prop_database().master.bddFsm
+    tupath = (path[0],)
+    try:
+        for s,t in zip(path, path[1:]):
+            comp = compute_path(s,t)
+            tupath = tupath + comp
+
+        str_path = [el.get_str_values() for el in tupath]
+        
+        return str_path
+    except:
+        print("error in generating states links")
+        return []
+
 
 if len(sys.argv) != 2:
     print("Usage:", sys.argv[0], "filename.smv")
@@ -236,13 +381,13 @@ for prop in pynusmv.glob.prop_database():
         print("property is not LTLSPEC, skipping")
         continue
     res = check_explain_gr1_spec(spec)
-    print(res)
-    # if res == None:
-    #     print('Property is not a GR(1) formula, skipping')
-    # if res[0] == True:
-    #     print("Property is respected")
-    # elif res[0] == False:
-    #     print("Property is not respected")
-    #     print("Counterexample:", res[1])
+
+    if res == None:
+        print('Property is not a GR(1) formula, skipping')
+    if res[0] == True:
+        print("Property is respected")
+    elif res[0] == False:
+        print("Property is not respected")
+        print("Counterexample:", tuple(to_str(res[1])))
 
 pynusmv.init.deinit_nusmv()

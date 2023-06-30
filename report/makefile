@@ -1,11 +1,6 @@
-all: del gen compile
+all: compile clean
 
 compile:
-	latexmk -outdir=output -auxdir=aux -pdf 
-
-del:
-	rm -rf output
-	rm -rf aux
-gen:
-	mkdir output
-	mkdir aux
+	latexmk -shell-escape -pdf
+clean:
+	latexmk -c

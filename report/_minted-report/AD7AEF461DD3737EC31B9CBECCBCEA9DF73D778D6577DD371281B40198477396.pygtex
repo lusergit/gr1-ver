@@ -1,0 +1,12 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{n}{fsm} \PYG{o}{=} \PYG{n}{pynusmv}\PYG{o}{.}\PYG{n}{glob}\PYG{o}{.}\PYG{n}{prop\PYGZus{}database}\PYG{p}{()}\PYG{o}{.}\PYG{n}{master}\PYG{o}{.}\PYG{n}{bddFsm}
+
+\PYG{c+c1}{\PYGZsh{} find fs and gs from formula}
+\PYG{n}{fs}\PYG{p}{,} \PYG{n}{gs} \PYG{o}{=} \PYG{n}{parse\PYGZus{}gr1}\PYG{p}{(}\PYG{n}{spec}\PYG{p}{)}
+
+\PYG{n}{loop\PYGZus{}set\PYGZus{}f} \PYG{o}{=} \PYG{n}{reacheability}\PYG{p}{(}\PYG{n}{fsm}\PYG{p}{)}
+\PYG{k}{for} \PYG{n}{f} \PYG{o+ow}{in} \PYG{n}{fs}\PYG{p}{:}
+    \PYG{n}{bdd} \PYG{o}{=} \PYG{n}{spec\PYGZus{}to\PYGZus{}bdd}\PYG{p}{(}\PYG{n}{fsm}\PYG{p}{,} \PYG{n}{f}\PYG{p}{)}
+    \PYG{n}{fronts\PYGZus{}f} \PYG{o}{=} \PYG{n}{GF}\PYG{p}{(}\PYG{n}{bdd}\PYG{p}{,} \PYG{n}{loop\PYGZus{}set\PYGZus{}f}\PYG{p}{)}
+    \PYG{n}{loop\PYGZus{}set\PYGZus{}f} \PYG{o}{=} \PYG{n}{loops}\PYG{p}{(}\PYG{n}{fronts\PYGZus{}f}\PYG{p}{)}
+\end{Verbatim}

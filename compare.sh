@@ -20,12 +20,12 @@ printc() {
     printf "${1} ${2} ${ENDC}\n"
 }
 
-echo "Running original ..."
-./original.py $1 > orig_out
-echo "Running online ..."
-./online.py $1 > online_out
+printc $GREEN "=============== ORIGINAL ==============="
+./original.py $1 # > orig_out
+printc $GREEN "===============  GR1_MC  ==============="
+./gr1_mc.py $1 # > online_out
 
-echo "diff:"
-diff -U3 --minimal orig_out online_out |
-  sed 's/^-/\x1b[1;31m-/;s/^+/\x1b[1;32m+/;s/^@/\x1b[1;34m@/;s/$/\x1b[0m/' |
-  diff-highlight
+# echo "diff:"
+# diff -U3 --minimal orig_out online_out |
+#   sed 's/^-/\x1b[1;31m-/;s/^+/\x1b[1;32m+/;s/^@/\x1b[1;34m@/;s/$/\x1b[0m/' |
+#   diff-highlight

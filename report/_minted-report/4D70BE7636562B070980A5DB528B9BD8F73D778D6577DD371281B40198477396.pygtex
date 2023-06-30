@@ -1,0 +1,26 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{k}{def} \PYG{n+nf}{GF}\PYG{p}{(}\PYG{n}{spec}\PYG{p}{,} \PYG{n}{reach}\PYG{p}{):}
+\PYG{+w}{    }\PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}check weather the model, in the `reach` subset verifies}
+
+\PYG{l+s+sd}{    G ( F (spec)).}
+
+\PYG{l+s+sd}{    If it does, it returns the set of frontiers calculated}
+
+\PYG{l+s+sd}{    \PYGZdq{}\PYGZdq{}\PYGZdq{}}
+    \PYG{n}{fsm} \PYG{o}{=} \PYG{n}{pynusmv}\PYG{o}{.}\PYG{n}{glob}\PYG{o}{.}\PYG{n}{prop\PYGZus{}database}\PYG{p}{()}\PYG{o}{.}\PYG{n}{master}\PYG{o}{.}\PYG{n}{bddFsm}
+    \PYG{k}{if} \PYG{o+ow}{not} \PYG{n}{reach}\PYG{p}{:}
+	\PYG{k}{return} \PYG{k+kc}{None}
+    \PYG{n}{recur} \PYG{o}{=} \PYG{n}{reach} \PYG{o}{*} \PYG{n}{spec}
+    \PYG{k}{while} \PYG{p}{(}\PYG{n}{fsm}\PYG{o}{.}\PYG{n}{count\PYGZus{}states}\PYG{p}{(}\PYG{n}{recur}\PYG{p}{)} \PYG{o}{!=} \PYG{l+m+mi}{0}\PYG{p}{):}
+	\PYG{n}{reach} \PYG{o}{=} \PYG{n}{pynusmv}\PYG{o}{.}\PYG{n}{dd}\PYG{o}{.}\PYG{n}{BDD}\PYG{o}{.}\PYG{n}{false}\PYG{p}{()}
+	\PYG{n}{new} \PYG{o}{=} \PYG{n}{fsm}\PYG{o}{.}\PYG{n}{pre}\PYG{p}{(}\PYG{n}{recur}\PYG{p}{)}
+	\PYG{n}{news} \PYG{o}{=} \PYG{p}{[}\PYG{n}{new}\PYG{p}{,} \PYG{n}{recur}\PYG{p}{]}
+	\PYG{k}{while} \PYG{p}{(}\PYG{n}{fsm}\PYG{o}{.}\PYG{n}{count\PYGZus{}states}\PYG{p}{(}\PYG{n}{new}\PYG{p}{)} \PYG{o}{!=} \PYG{l+m+mi}{0}\PYG{p}{):}
+	    \PYG{n}{reach} \PYG{o}{=} \PYG{n}{reach} \PYG{o}{+} \PYG{n}{new}
+	    \PYG{k}{if} \PYG{n}{recur}\PYG{o}{.}\PYG{n}{entailed}\PYG{p}{(}\PYG{n}{reach}\PYG{p}{):}
+		\PYG{k}{return} \PYG{n}{news}
+	    \PYG{n}{new} \PYG{o}{=} \PYG{p}{(}\PYG{n}{fsm}\PYG{o}{.}\PYG{n}{pre}\PYG{p}{(}\PYG{n}{new}\PYG{p}{))} \PYG{o}{\PYGZhy{}} \PYG{n}{reach}
+	    \PYG{n}{news} \PYG{o}{=} \PYG{p}{[}\PYG{n}{new}\PYG{p}{]} \PYG{o}{+} \PYG{n}{news}
+	    \PYG{n}{recur} \PYG{o}{=} \PYG{n}{recur} \PYG{o}{*} \PYG{n}{reach}
+    \PYG{k}{return} \PYG{k+kc}{None}
+\end{Verbatim}
